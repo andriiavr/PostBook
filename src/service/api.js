@@ -19,10 +19,10 @@ export const pingServer = () =>
       return false;
     });
 
-export const getFeed = (page = 1) => {
+export const getFeed = (page = 1, snapshot) => {
   return api
     .get(`/posts`, {
-      params: { page },
+      params: { page, snapshot },
     })
     .then((res) => res.data)
     .catch((err) => {
@@ -30,10 +30,10 @@ export const getFeed = (page = 1) => {
     });
 };
 
-export const getFollowing = (before) => {
+export const getFollowing = (page = 1, snapshot) => {
   return api
     .get(`/following`, {
-      params: before ? { before } : {},
+      params: { page, snapshot },
     })
     .then((res) => res.data)
     .catch((err) => {
@@ -148,9 +148,9 @@ export const getUserById = (username) => {
     });
 };
 
-export const getUserPostsById = (username) => {
+export const getUserPostsById = (username, page = 1, snapshot) => {
   return api
-    .get(`/users/${username}/posts`)
+    .get(`/users/${username}/posts`, { params: { page, snapshot } })
     .then((res) => res.data)
     .catch((err) => {
       throw err;

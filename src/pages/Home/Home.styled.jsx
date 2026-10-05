@@ -3,8 +3,6 @@ import styled from "styled-components";
 
 export const StyledHome = styled.section`
   width: 100%;
-  border-right: 1px solid ${({theme}) => theme.colors.lines};
-  border-left: 1px solid ${({theme}) => theme.colors.lines};
 `;
 
 export const Selector = styled.div`
@@ -30,8 +28,4 @@ export const Page = styled(NavLink)`
     font-weight: ${({ theme }) => theme.weight.bold};
     color: ${({ theme }) => theme.colors.accent};
   }
-`;
-
-export const Posts = styled.ul`
-  width: 100%;
 `;

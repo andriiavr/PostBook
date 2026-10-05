@@ -8,10 +8,31 @@ export const StyledPost = styled.li`
   border-bottom: 1px solid ${({theme}) => theme.colors.lines};
 `;
 
+export const Author = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 3px;
+  font-size: 14px;
+  color: ${({theme}) => theme.colors.subText};
+  
+  a {
+    font-size: 14px;
+    color: ${({theme}) => theme.colors.subText};
+  }
+
+  h4 {
+    font-weight: ${({theme}) => theme.weight.bold};
+    color: #000
+  }
+`
+
+export const Content = styled.div
+
 export const Interactions = styled.div`
   display: flex;
-  justify-content: space-evenly;
   align-items: center;
+  padding: 20px 0 0;
+  gap: 28px;
 `;
 
 export const Button = styled.button`

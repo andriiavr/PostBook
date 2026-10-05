@@ -3,9 +3,8 @@ import { Content, RightSidebar, Wrapper } from "./Layout.styled";
 import SideBar from "../SideBar/SideBar";
 import { useEffect, useState } from "react";
 import { useLogin } from "../LoginContext";
-import { InfinitySpin } from "react-loader-spinner";
 import { useTheme } from "styled-components";
-import { NotFound } from "../../pages/NotFound/NotFound";
+import { Loader } from "../Loader";
 
 export const Layout = () => {
   const { online, checkLogin } = useLogin();
@@ -28,7 +27,7 @@ export const Layout = () => {
   }, []);
 
   if (isLoading)
-    return <InfinitySpin width="200" color={theme.colors.accent} margin="auto"/>;
+    return <Loader />
   if (!online) return <Navigate to="/error" state={{code: 503}} />
 
   return (

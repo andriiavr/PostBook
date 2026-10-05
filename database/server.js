@@ -47,6 +47,13 @@ const POST_COLUMNS = `
   (julianday('now') - julianday(p.created_at)) * 24 AS age_hours
 `;
 
+function getSnapshot(req) {
+  return (
+    Number(req.query.snapshot) ||
+    db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM posts").get().m
+  );
+}
+
 const app = express();
 app.use(cors());
 const port = 3001;
@@ -209,6 +216,7 @@ app.get("/posts", optionalAuth, (req, res) => {
   const TRENDING_PER_PAGE = 10;
   const NEW_PER_PAGE = 5;
 
+  const snapshot = getSnapshot(req);
   const candidates = db
     .prepare(
       `
@@ -219,14 +227,15 @@ app.get("/posts", optionalAuth, (req, res) => {
     EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ?1 AND f.followee_id = u.id) AS followed,
     (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id) AS replies,
     (julianday('now') - julianday(p.created_at)) * 24 AS age_hours
-  FROM posts p
-  JOIN users u ON u.id = p.user_id
-  WHERE p.reply_to IS NULL
-  ORDER BY p.id DESC
-  LIMIT 500
+    FROM posts p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.reply_to IS NULL
+    AND p.id <= ?2
+    ORDER BY p.id DESC
+    LIMIT 500
 `,
     )
-    .all(viewerId)
+    .all(viewerId, snapshot)
     .map(withAuthor);
 
   const score = (p) =>
@@ -271,45 +280,42 @@ app.get("/posts", optionalAuth, (req, res) => {
     while (f < fresh.length) posts.push({ ...fresh[f++], source: "new" });
   }
 
-  res.json({
-    page,
-    hasMore: used.size < candidates.length,
-    posts,
-  });
+  res.json({ page, snapshot, hasMore: used.size < candidates.length, posts });
 });
 
 app.get("/following", requireAuth, (req, res) => {
   const userId = req.user.id;
-  const before = Number(req.query.before) || Number.MAX_SAFE_INTEGER;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const snapshot = getSnapshot(req);
+  const LIMIT = 15;
 
   const rows = db
     .prepare(
       `
-    SELECT p.id, p.body, p.created_at,
-      u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
-      (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
-      EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
-      1 AS followed,
-      (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id) AS replies,
-      (julianday('now') - julianday(p.created_at)) * 24 AS age_hours
-    FROM posts p
-    JOIN users u ON u.id = p.user_id
-    WHERE p.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ?1)
-      AND p.reply_to IS NULL
-      AND p.id < ?2
-    ORDER BY p.id DESC
-    LIMIT 15
-  `,
+  SELECT p.id, p.body, p.created_at,
+    u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
+    (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
+    EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
+    1 AS followed,
+    (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id) AS replies,
+    (julianday('now') - julianday(p.created_at)) * 24 AS age_hours
+  FROM posts p
+  JOIN users u ON u.id = p.user_id
+  WHERE p.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ?1)
+    AND p.reply_to IS NULL
+    AND p.id <= ?2
+  ORDER BY p.id DESC
+  LIMIT ?3 OFFSET ?4
+`,
     )
-    .all(userId, before)
+    .all(userId, snapshot, LIMIT + 1, (page - 1) * LIMIT);
+
+  const hasMore = rows.length > LIMIT;
+  const posts = rows
+    .slice(0, LIMIT)
     .map(withAuthor)
     .map((p) => ({ ...p, source: "following" }));
-
-  res.json({
-    posts: rows,
-    hasMore: rows.length === 15,
-    nextBefore: rows.length ? rows[rows.length - 1].id : null,
-  });
+  res.json({ page, snapshot, hasMore, posts });
 });
 
 app.get("/posts/:id", optionalAuth, (req, res) => {
@@ -356,24 +362,44 @@ app.get("/users/:username", optionalAuth, (req, res) => {
 
 app.get("/users/:username/posts", optionalAuth, (req, res) => {
   const viewerId = req.user?.id ?? 0;
-  const before = Number(req.query.before) || Number.MAX_SAFE_INTEGER;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const snapshot = getSnapshot(req);
+  const LIMIT = 15;
 
   const rows = db
     .prepare(
       `
-    SELECT ${POST_COLUMNS}
+    SELECT p.id, p.body, p.created_at,
+      u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
+      (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
+      EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
+      EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ?1 AND f.followee_id = u.id) AS followed,
+      (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id) AS replies,
+      (julianday('now') - julianday(p.created_at)) * 24 AS age_hours
     FROM posts p
     JOIN users u ON u.id = p.user_id
-    WHERE u.username = ? AND p.id < ?
+    WHERE u.username = ?2 AND p.id <= ?3
     ORDER BY p.id DESC
-    LIMIT 20
+    LIMIT ?4 OFFSET ?5
   `,
     )
-    .all(viewerId, req.params.username, before)
-    .map(withAuthor)
-    .map((p) => ({ ...p, source: "profile" }));
+    .all(
+      viewerId,
+      req.params.username,
+      snapshot,
+      LIMIT + 1,
+      (page - 1) * LIMIT,
+    );
 
-  res.json(rows);
+  res.json({
+    page,
+    snapshot,
+    hasMore: rows.length > LIMIT,
+    posts: rows
+      .slice(0, LIMIT)
+      .map(withAuthor)
+      .map((p) => ({ ...p, source: "profile" })),
+  });
 });
 
 app.listen(port, () => console.log("Running on http://localhost:" + port));

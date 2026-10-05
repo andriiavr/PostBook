@@ -1,11 +1,18 @@
 import styled from "styled-components";
 
-// export const StyledPosts = styled.div`
-//     display: flex;
-//     flex-direction: column;
-//     width: 100%;
-//     height: 100vh;
-//     overflow-y: scroll;
-//     justify-content: start;
-//     align-items: center;
-// `
+export const StyledPosts = styled.div`
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    list-style: none;
+`
+
+export const ThatsIt = styled.div`
+    padding: 10px 0;
+    text-align: center;
+    color: ${({theme}) => theme.colors.subText};
+
+    h2 {
+        color: #000;
+    }
+`

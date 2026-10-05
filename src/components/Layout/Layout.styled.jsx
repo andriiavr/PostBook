@@ -17,7 +17,10 @@ export const Content = styled.main`
   width: 100%;
   justify-content: start;
   align-items: center;
-  background-color: ${({theme}) => theme.colors.contentBg};
+
+  border-right: 1px solid ${({ theme }) => theme.colors.lines};
+  border-left: 1px solid ${({ theme }) => theme.colors.lines};
+  background-color: ${({ theme }) => theme.colors.contentBg};
 `;
 
 export const RightSidebar = styled.aside`

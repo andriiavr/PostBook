@@ -9,7 +9,7 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     font-family: "Manrope", sans-serif;
     overflow: visible;
-    background-color: ${({theme}) => theme.colors.mainBg};
+    background-color: ${({ theme }) => theme.colors.mainBg};
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -26,5 +26,10 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     padding: 0;
     list-style: none;
+  } 
+  a {
+    color: #000;
+    text-decoration: none;
+    font-size: 18px;
   }
 `;

@@ -2,7 +2,7 @@ export const theme = {
     layout: {
         desktop: '1226px',
         tablet: '834px',
-        mobile: '390px'
+        mobile: '435px'
     },
     weight: {
         normal: 400,

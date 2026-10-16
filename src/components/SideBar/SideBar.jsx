@@ -1,40 +1,53 @@
-import { NavLink, useNavigate } from "react-router-dom";
-import { Wrapper } from "./SideBar.styled";
+import { useNavigate } from "react-router-dom";
+import {
+  Logo,
+  Wrapper,
+  Pages,
+  Page,
+  PageName,
+  ButtonWrapper,
+} from "./SideBar.styled";
 import { useLogin } from "../LoginContext";
 import LoginButton from "../Buttons/LoginButton";
 import PostButton from "../Buttons/PostButton";
+import { GrHomeRounded } from "react-icons/gr";
+import { FiSearch, FiSettings, FiUser } from "react-icons/fi";
 
-const SideBar = ( ) => {
+const SideBar = () => {
   const navigate = useNavigate();
-  const { loggedIn } = useLogin()
+  const { loggedIn, account } = useLogin()
+  console.log(account)
 
   return (
     <Wrapper>
-      <h2>PostBook</h2>
-      <ul>
+      <Logo>PostBook</Logo>
+      <Pages>
         <li>
-          <NavLink to="/">Home</NavLink>
+          <Page to="/">
+            <GrHomeRounded /> <PageName>Home</PageName>
+          </Page>
         </li>
         <li>
-          <NavLink to="/">Following</NavLink>
+          <Page to="/search">
+            <FiSearch /> <PageName>Search</PageName>
+          </Page>
         </li>
         <li>
-          <NavLink>Search</NavLink>
+          <Page to={`/@${account.username}`}>
+            <FiUser /> <PageName>Profile</PageName>
+          </Page>
         </li>
         <li>
-          <NavLink>Profile</NavLink>
+          <Page to="/settings">
+            <FiSettings /> <PageName>Settings</PageName>
+          </Page>
         </li>
-        <li>
-          <NavLink>Settings</NavLink>
-        </li>
-      </ul>
-      {loggedIn ? (
-        <PostButton />
-      ) : (
-        <LoginButton />
-      )}
+      </Pages>
+      <ButtonWrapper>
+        {loggedIn ? <PostButton /> : <LoginButton />}
+      </ButtonWrapper>
     </Wrapper>
   );
 };
 
-export default SideBar
+export default SideBar;

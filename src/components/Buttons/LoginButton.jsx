@@ -1,18 +1,21 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useLogin } from "../LoginContext";
-import { StyledButton } from "./Buttons.styled";
+import { ButtonText, StyledButton } from "./Buttons.styled";
+import { MdLogin } from "react-icons/md";
 
 const LoginButton = () => {
   const { loginHighlight, clearLoginHighlight } = useLogin();
+  const location = useLocation();
 
   return (
-    <Link to="/login">
+    <Link to="/login" state={{ from: location }}>
       <StyledButton
         type="button"
         className={`${loginHighlight ? "highlight" : ""}`}
         onAnimationEnd={clearLoginHighlight}
       >
-        Login
+        <MdLogin />
+        <ButtonText>Login</ButtonText>
       </StyledButton>
     </Link>
   );

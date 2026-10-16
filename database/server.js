@@ -4,6 +4,7 @@ import db from "./db.js";
 import cors from "cors";
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import { colorFromId } from "./colors.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET missing in .env");
@@ -40,7 +41,7 @@ function optionalAuth(req, res, next) {
 
 const POST_COLUMNS = `
   p.id, p.body, p.created_at, p.reply_to,
-  u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
+  u.id AS author_id, u.username, u.bio, u.color AS author_color, u.created_at AS author_created_at,
   (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
   EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked,
   (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id) AS replies,
@@ -84,9 +85,14 @@ app.post("/register", async (req, res) => {
         "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
       )
       .run(username, email, hash);
+
+    const id = Number(info.lastInsertRowid);
+    const color = colorFromId(id);
+    db.prepare("UPDATE users SET color = ? WHERE id = ?").run(color, id);
+
     res.status(201).json({
-      token: signToken({ id: Number(info.lastInsertRowid) }),
-      user: { id: Number(info.lastInsertRowid), username },
+      token: signToken({ id }),
+      user: { id, username, color },
     });
   } catch (err) {
     if (String(err.message).includes("UNIQUE")) {
@@ -98,7 +104,7 @@ app.post("/register", async (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-  const { identifier, password } = req.body; // username or email
+  const { identifier, password } = req.body;
   if (!identifier || !password) {
     return res.status(400).json({ error: "Missing fields" });
   }
@@ -191,6 +197,7 @@ function withAuthor(row) {
     author_id,
     username,
     bio,
+    author_color,
     author_created_at,
     liked,
     followed,
@@ -203,6 +210,7 @@ function withAuthor(row) {
       id: author_id,
       username,
       bio,
+      color: author_color,
       joined: author_created_at,
       followed: Boolean(followed),
     },
@@ -221,7 +229,7 @@ app.get("/posts", optionalAuth, (req, res) => {
     .prepare(
       `
   SELECT p.id, p.body, p.created_at,
-    u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
+    u.id AS author_id, u.username, u.bio, u.color AS author_color, u.created_at AS author_created_at,
     (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
     EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
     EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ?1 AND f.followee_id = u.id) AS followed,
@@ -293,7 +301,7 @@ app.get("/following", requireAuth, (req, res) => {
     .prepare(
       `
   SELECT p.id, p.body, p.created_at,
-    u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
+    u.id AS author_id, u.username, u.bio, u.color AS author_color, u.created_at AS author_created_at,
     (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
     EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
     1 AS followed,
@@ -316,6 +324,73 @@ app.get("/following", requireAuth, (req, res) => {
     .map(withAuthor)
     .map((p) => ({ ...p, source: "following" }));
   res.json({ page, snapshot, hasMore, posts });
+});
+
+app.get("/suggestions", optionalAuth, (req, res) => {
+  const viewerId = req.user?.id ?? 0;
+  const LIMIT = 3;
+
+  const base = `
+    SELECT u.id, u.username, u.bio, u.color,
+      (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS followers
+    FROM users u
+  `;
+
+  // 1) people followed by the people I follow (not me, not already followed)
+  const mutual = viewerId
+    ? db
+        .prepare(
+          `
+      SELECT u.id, u.username, u.bio, u.color,
+        (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS followers,
+        COUNT(*) AS mutual_count
+      FROM follows f1
+      JOIN follows f2 ON f2.follower_id = f1.followee_id
+      JOIN users u ON u.id = f2.followee_id
+      WHERE f1.follower_id = ?1
+        AND u.id <> ?1
+        AND u.id NOT IN (SELECT followee_id FROM follows WHERE follower_id = ?1)
+      GROUP BY u.id
+      ORDER BY mutual_count DESC, followers DESC
+      LIMIT ?2
+    `,
+        )
+        .all(viewerId, LIMIT)
+    : [];
+
+  // 2) fill remaining slots with the most-followed users
+  let suggestions = mutual.map((u) => ({
+    ...u,
+    reason: "followed_by_following",
+  }));
+
+  if (suggestions.length < LIMIT) {
+    const excludeIds = [viewerId, ...suggestions.map((u) => u.id)];
+    const placeholders = excludeIds.map(() => "?").join(",");
+
+    const popular = db
+      .prepare(
+        `
+      ${base}
+      WHERE u.id NOT IN (${placeholders})
+        AND u.id NOT IN (SELECT followee_id FROM follows WHERE follower_id = ?)
+      ORDER BY followers DESC, u.id ASC
+      LIMIT ?
+    `,
+      )
+      .all(...excludeIds, viewerId, LIMIT - suggestions.length);
+
+    suggestions = suggestions.concat(
+      popular.map((u) => ({ ...u, reason: "popular" })),
+    );
+  }
+
+  res.json({
+    users: suggestions.map(({ mutual_count, ...u }) => ({
+      ...u,
+      mutual_count: mutual_count ?? 0,
+    })),
+  });
 });
 
 app.get("/posts/:id", optionalAuth, (req, res) => {
@@ -370,7 +445,7 @@ app.get("/users/:username/posts", optionalAuth, (req, res) => {
     .prepare(
       `
     SELECT p.id, p.body, p.created_at,
-      u.id AS author_id, u.username, u.bio, u.created_at AS author_created_at,
+      u.id AS author_id, u.username, u.bio, u.color AS author_color, u.created_at AS author_created_at,
       (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
       EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
       EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ?1 AND f.followee_id = u.id) AS followed,

@@ -72,7 +72,7 @@ export const NotFound = () => {
       </svg>
       <h2>{title}</h2>
       <p>{message}</p>
-      <Link to="/">Back to home</Link>
+      <Link to="/" replace={true}>Back to home</Link>
       {status && <ErrorCode>Error code: {status}</ErrorCode>}
     </StyledNotFound>
   );

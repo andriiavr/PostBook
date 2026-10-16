@@ -57,3 +57,10 @@ export const Button = styled.button`
     }
   }
 `;
+
+export const FollowText = styled.p`
+  display: none;
+  @media screen and (min-width: ${({theme}) => theme.layout.mobile}) {
+    display: inline;
+  }
+`

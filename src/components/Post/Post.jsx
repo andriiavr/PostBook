@@ -1,10 +1,14 @@
-import { Link } from "react-router-dom";
-import { Author, Button, Interactions, StyledPost } from "./Post.styled";
+import { Link, useLocation } from "react-router-dom";
+import { Author, Button, FollowText, Interactions, StyledPost } from "./Post.styled";
 import { FiHeart, FiBookmark } from "react-icons/fi";
+import { FaUserCheck, FaUserPlus } from "react-icons/fa";
 
-const Post = ({ content }) => {
-  const { age_hours, id, body, author, likes, liked, saved } = content;
+const Post = (props) => {
+  const { age_hours, id, body, author, likes, liked, saved } = props.content;
   const { username, followed } = author;
+  const location = useLocation()
+
+  const userId = JSON.parse(localStorage.getItem('account'))?.id ?? ''
 
   const postTime = () => {
     const age_minutes = age_hours * 60;
@@ -23,18 +27,21 @@ const Post = ({ content }) => {
   return (
     <StyledPost>
       <Author>
-        <Link to={`/@${username}`}>
+        <Link to={`/@${username}`} state={{from: location}}>
           <h4>{username}</h4>
         </Link>
         <Link to={`/@${username}`}>@{username}</Link> · {postTime()}
-        <button
-          type="button"
-          className={followed ? "followed" : ""}
-          data-action="follow"
-          data-user={author.id}
-        >
-          {followed ? "Following" : "Follow"}
-        </button>
+        {!props.user && userId !== author.id && (
+          <button
+            type="button"
+            className={followed ? "followed" : ""}
+            data-action={followed ? null : "follow"}
+            data-user={author.id}
+          >
+            {followed ? <><FaUserCheck /> <FollowText>Following</FollowText></> : <><FaUserPlus /> <FollowText>Follow</FollowText></>}
+            
+          </button>
+        )}
       </Author>
       <div>{body}</div>
       <Interactions>

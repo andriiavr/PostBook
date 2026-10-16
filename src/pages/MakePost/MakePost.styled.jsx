@@ -8,3 +8,7 @@ export const StyledPost = styled.div`
     justify-content: start;
     align-items: center;
 `
+
+export const PostInput = styled.textarea`
+    font-size: 18px;
+`

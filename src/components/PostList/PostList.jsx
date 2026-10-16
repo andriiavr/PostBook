@@ -11,8 +11,9 @@ import {
 import { useLogin } from "../LoginContext";
 import { StyledPosts, ThatsIt } from "./PostList.styled";
 import { Loader } from "../Loader";
-import { useInfiniteScroll } from "../../useInfiniteScroll";
+import { useInfiniteScroll } from "../../service/useInfiniteScroll";
 import { Link } from "react-router-dom";
+import { useTheme } from "styled-components";
 
 const actions = {
   like: {
@@ -32,7 +33,10 @@ const actions = {
   follow: {
     scope: "user",
     api: follow,
-    toggle: (p) => ({ ...p, followed: !p.followed }),
+    toggle: (p) => ({
+      ...p,
+      author: { ...p.author, followed: !p.author.followed },
+    }),
   },
 };
 
@@ -42,6 +46,8 @@ const PostList = ({ user, following }) => {
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [snapshot, setSnapshot] = useState(null);
+
+  const theme = useTheme();
 
   const { promptLogin, loggedIn } = useLogin();
 
@@ -82,7 +88,7 @@ const PostList = ({ user, following }) => {
   }, [user, following]);
 
   const loadMore = () => {
-    if (!hasMore || loadingMore) return;
+    if (!hasMore || loading) return;
     setLoading(true);
 
     const nextPage = page + 1;
@@ -153,7 +159,7 @@ const PostList = ({ user, following }) => {
     <>
       <StyledPosts onClick={handleInteract}>
         {posts.map((post) => (
-          <Post key={post.id} content={post} />
+          <Post key={post.id} content={post} user={!!user} />
         ))}
       </StyledPosts>
       {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
@@ -162,7 +168,9 @@ const PostList = ({ user, following }) => {
         <ThatsIt>
           <h2>Thats it for today!</h2>
           <p>There are no more posts found</p>
-          <Link to="/newpost">Make your own!</Link>
+          <Link to="/newpost" style={{ color: theme.colors.accent }}>
+            Make your own
+          </Link>
         </ThatsIt>
       )}
     </>

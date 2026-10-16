@@ -41,6 +41,15 @@ export const getFollowing = (page = 1, snapshot) => {
     });
 };
 
+export const getFollowSuggest = () => {
+  return api
+    .get(`/suggestions`)
+    .then((res) => res.data.users)
+    .catch((err) => {
+      throw err;
+    });
+};
+
 export const getPostById = (id) => {
   return api
     .get(`/posts/${id}`)

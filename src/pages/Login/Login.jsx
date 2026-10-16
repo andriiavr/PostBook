@@ -6,12 +6,13 @@ import {
   Input,
   SubmitBtn,
 } from "./Login.styled";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { logIn } from "../../service/api";
 
 export const Login = () => {
   const [identifier, setIdent] = useState("");
   const [password, setPass] = useState("");
+  const location = useLocation()
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export const Login = () => {
       });
     localStorage.setItem("token", token.token);
     localStorage.setItem("account", JSON.stringify(token.user));
-    navigate("/", { replace: true });
+    navigate(location.state?.from ?? "/", { replace: true });
   };
 
   return (

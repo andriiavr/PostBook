@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
-import { StyledButton } from "./Buttons.styled";
+import { StyledButton, ButtonText } from "./Buttons.styled";
+import { FiPlusCircle } from "react-icons/fi";
 
 const PostButton = () => {
   return (
     <Link to="/newpost">
-      <StyledButton type="button">Make post</StyledButton>
+      <StyledButton type="button">
+        <FiPlusCircle /> <ButtonText>Make post</ButtonText>
+      </StyledButton>
     </Link>
   );
 };

@@ -9,9 +9,13 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     font-family: "Manrope", sans-serif;
     overflow: visible;
-    background-color: ${({ theme }) => theme.colors.mainBg};
+    background-color: ${({ theme }) => theme.colors.contentBg}; 
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+
+    @media screen and (min-width: ${({ theme }) => theme.layout.mobile}){
+      background-color: ${({ theme }) => theme.colors.mainBg}; 
+    }
   }
 
   code {
@@ -28,8 +32,8 @@ export const GlobalStyle = createGlobalStyle`
     list-style: none;
   } 
   a {
-    color: #000;
+    color: ${({ theme }) => theme.colors.accent};
     text-decoration: none;
-    font-size: 18px;
+    /* font-size: 18px; */
   }
 `;

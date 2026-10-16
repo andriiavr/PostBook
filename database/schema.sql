@@ -4,6 +4,7 @@ CREATE TABLE users (
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   bio           TEXT,
+  color         TEXT,
   created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

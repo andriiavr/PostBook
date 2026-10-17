@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   Logo,
   Wrapper,
@@ -14,9 +14,8 @@ import { GrHomeRounded } from "react-icons/gr";
 import { FiSearch, FiSettings, FiUser } from "react-icons/fi";
 
 const SideBar = () => {
-  const navigate = useNavigate();
+  const location = useLocation()
   const { loggedIn, account } = useLogin()
-  console.log(account)
 
   return (
     <Wrapper>
@@ -33,7 +32,7 @@ const SideBar = () => {
           </Page>
         </li>
         <li>
-          <Page to={`/@${account.username}`}>
+          <Page to={!account.username ? `/login` : `/@${account.username}`} state={{from: location}}>
             <FiUser /> <PageName>Profile</PageName>
           </Page>
         </li>

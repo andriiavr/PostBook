@@ -36,4 +36,8 @@ export const GlobalStyle = createGlobalStyle`
     text-decoration: none;
     /* font-size: 18px; */
   }
+
+  input {
+    font-size: 16px;
+  }
 `;

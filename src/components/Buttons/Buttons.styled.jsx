@@ -24,7 +24,14 @@ export const StyledButton = styled.button`
   font-size: 18px;
   font-weight: ${({ theme }) => theme.weight.bold};
   color: #fff;
-  transition: border 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    border 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover,
+  &:focus {
+    background-color: ${({ theme }) => theme.colors.accentShade};
+  }
 
   &.highlight {
     animation: ${({ theme }) => loginPulse(theme.colors.accent)} 1s ease-in-out

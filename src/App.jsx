@@ -8,6 +8,7 @@ import MakePost from "./pages/MakePost/MakePost";
 import { ProfileOrPost } from "./components/ProfileOrPost";
 import { Following } from "./pages/Home/Following";
 import { NotFound } from "./pages/NotFound/NotFound";
+import Search from "./pages/Search/Search";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/following" element={<Following />} />
           <Route path="/:id" element={<ProfileOrPost />} />
           <Route path="/newpost" element={<MakePost />} />
+          <Route path="/search" element={<Search />} />
           <Route
             path="*"
             element={<Navigate to="/error" state={{ code: 404 }} />}

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseURL = "http://localhost:3001";
+const baseURL = "http://192.168.0.187:3001";
 
 const api = axios.create({ baseURL });
 
@@ -165,3 +165,21 @@ export const getUserPostsById = (username, page = 1, snapshot) => {
       throw err;
     });
 };
+
+export const search = (q, page = 1, type = "all") => {
+  if (!q) return;
+  return api
+    .get(`/search`, {
+      params: {
+        q,
+        type,
+        page,
+      },
+    })
+    .then((res) => res.data)
+    .catch((err) => {
+      throw err;
+    });
+};
+
+console.log(search('andriiavr'))

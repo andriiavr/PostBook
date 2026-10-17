@@ -46,6 +46,7 @@ const PostList = ({ user, following }) => {
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [snapshot, setSnapshot] = useState(null);
+  const [error, setError] = useState(false);
 
   const theme = useTheme();
 
@@ -58,11 +59,20 @@ const PostList = ({ user, following }) => {
     setSnapshot(null);
     setHasMore(false);
 
-    const request = user
-      ? getUserPostsById(user, 1)
-      : following
-        ? getFollowing(1)
-        : getFeed(1);
+    // const request = user
+    //   ? getUserPostsById(user, 1)
+    //   : following
+    //     ? getFollowing(1)
+    //     : getFeed(1);
+    let request;
+
+    if (user) {
+      request = getUserPostsById(user, 1);
+    } else if (following) {
+      request = getFollowing(1);
+    } else {
+      request = getFeed(1);
+    }
 
     request
       .then(({ posts, hasMore, snapshot }) => {
@@ -75,6 +85,7 @@ const PostList = ({ user, following }) => {
       .catch((err) => {
         if (!cancelled) {
           console.error(err);
+          setError(true)
           setPosts([]);
         }
       })
@@ -108,7 +119,7 @@ const PostList = ({ user, following }) => {
         setPage(nextPage);
       })
       .catch((err) => {
-        console.error(err);
+        setError(true);
       })
       .finally(() => {
         setLoading(false);
@@ -149,11 +160,9 @@ const PostList = ({ user, following }) => {
 
   const sentinelRef = useInfiniteScroll(
     loadMore,
-    hasMore && !loading,
+    hasMore && !loading && !error,
     posts.length,
   );
-
-  if (loading) return <Loader />;
 
   return (
     <>
@@ -163,7 +172,17 @@ const PostList = ({ user, following }) => {
         ))}
       </StyledPosts>
       {hasMore && <div ref={sentinelRef} style={{ height: 1 }} />}
-      {loading && <p>Loading...</p>}
+      {loading && <Loader />}
+      {error && (
+        <button
+          onClick={() => {
+            setError(false);
+            loadMore();
+          }}
+        >
+          Couldn't load more. Retry
+        </button>
+      )}
       {!hasMore && (
         <ThatsIt>
           <h2>Thats it for today!</h2>

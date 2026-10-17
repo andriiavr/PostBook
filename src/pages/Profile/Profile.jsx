@@ -44,7 +44,11 @@ const Profile = ({ user }) => {
       unfollow(authorId);
     }
     setInfo((p) => {
-      return { ...p, isFollowing: !p.isFollowing };
+      return {
+        ...p,
+        isFollowing: !p.isFollowing,
+        followers: p.followers + (p.isFollowing ? -1 : 1),
+      };
     });
   };
 
@@ -63,7 +67,10 @@ const Profile = ({ user }) => {
 
   return (
     <StyledProfile>
-      <Link to={location.state?.from ?? "/"} style={{padding: 20, paddingBottom: 0, marginRight: 'auto'}}>
+      <Link
+        to={location.state?.from ?? "/"}
+        style={{ padding: 20, paddingBottom: 0, marginRight: "auto" }}
+      >
         <MdOutlineArrowBackIos />
       </Link>
       <ProfileInfo onClick={handleClick}>

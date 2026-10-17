@@ -477,4 +477,122 @@ app.get("/users/:username/posts", optionalAuth, (req, res) => {
   });
 });
 
+// escape % and _ so users can't accidentally (or deliberately) use LIKE wildcards
+const escapeLike = (s) => s.replace(/[\\%_]/g, "\\$&");
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// search posts and accounts, sorted by relevance:
+// /search?q=hello&type=all|users|posts&page=1
+app.get("/search", optionalAuth, (req, res) => {
+  const viewerId = req.user?.id ?? 0;
+  const q = String(req.query.q || "")
+    .trim()
+    .replace(/^@/, "");
+  if (!q) return res.status(400).json({ error: "Missing search query" });
+  if (q.length > 100) return res.status(400).json({ error: "Query too long" });
+
+  const filter = ["users", "posts"].includes(req.query.type)
+    ? req.query.type
+    : "all";
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const LIMIT = 15;
+  const CANDIDATES = 200; // max matches pulled per type before ranking
+
+  const contains = `%${escapeLike(q)}%`;
+  const lowerQ = q.toLowerCase();
+  const wordRe = new RegExp(`(^|\\W)${escapeRegex(q)}(\\W|$)`, "i");
+
+  let results = [];
+
+  if (filter !== "posts") {
+    const rows = db
+      .prepare(
+        `
+      SELECT u.id, u.username, u.bio, u.color,
+        (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS followers,
+        (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS following,
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS posts,
+        EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ?1 AND f.followee_id = u.id) AS isFollowing
+      FROM users u
+      WHERE u.username LIKE ?2 ESCAPE '\\' OR u.bio LIKE ?2 ESCAPE '\\'
+      LIMIT ?3
+    `,
+      )
+      .all(viewerId, contains, CANDIDATES);
+
+    for (const u of rows) {
+      const name = u.username.toLowerCase();
+      let score = 0;
+      if (name === lowerQ) score = 100;
+      else if (name.startsWith(lowerQ)) score = 70;
+      else if (name.includes(lowerQ)) score = 50;
+      else if (wordRe.test(u.bio || ""))
+        score = 25; // bio-only match
+      else score = 15;
+      score += Math.log2(u.followers + 1) * 3; // popular accounts rank higher
+
+      results.push({
+        ...u,
+        isFollowing: Boolean(u.isFollowing),
+        type: "user",
+        score,
+      });
+    }
+  }
+
+  if (filter !== "users") {
+    const rows = db
+      .prepare(
+        `
+      SELECT p.id, p.body, p.created_at, p.reply_to,
+        u.id AS author_id, u.username, u.bio, u.color AS author_color, u.created_at AS author_created_at,
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes,
+        EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ?1) AS liked,
+        EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ?1 AND f.followee_id = u.id) AS followed,
+        (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id) AS replies,
+        (julianday('now') - julianday(p.created_at)) * 24 AS age_hours
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      WHERE p.body LIKE ?2 ESCAPE '\\'
+      ORDER BY p.id DESC
+      LIMIT ?3
+    `,
+      )
+      .all(viewerId, contains, CANDIDATES);
+
+    for (const row of rows) {
+      const post = withAuthor(row);
+      const body = post.body.toLowerCase();
+
+      let score = wordRe.test(post.body) ? 40 : 25; // whole word beats substring
+      if (body.startsWith(lowerQ)) score += 5;
+      score += Math.min(body.split(lowerQ).length - 1, 3) * 2; // repeated mentions
+      score += Math.log2(post.likes + 2 * post.replies + 1) * 3; // engagement
+      score += 10 / (1 + post.age_hours / 24); // recency, fades over days
+      if (post.reply_to) score -= 3; // slightly prefer top-level posts
+
+      results.push({ ...post, type: "post", score });
+    }
+  }
+
+  results.sort(
+    (a, b) =>
+      b.score - a.score ||
+      (a.type === b.type ? b.id - a.id : a.type === "user" ? -1 : 1),
+  );
+
+  const start = (page - 1) * LIMIT;
+  const pageItems = results
+    .slice(start, start + LIMIT)
+    .map(({ score, ...item }) => item); // drop internal score
+
+  res.json({
+    q,
+    filter,
+    page,
+    hasMore: start + LIMIT < results.length,
+    results: pageItems,
+  });
+});
+
 app.listen(port, () => console.log("Running on http://localhost:" + port));

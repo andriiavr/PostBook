@@ -21,13 +21,13 @@ export const Wrapper = styled.header`
     left: 0;
     right: 0;
     flex-direction: row;
-    max-width: none;
+    max-width: 100vw;
     height: auto;
     align-items: center;
     gap: 0;
     background-color: #fff;
     overflow: visible;
-    padding: 40px 0 0;
+    padding: 20px 0px 5px;
   }
 `;
 
@@ -41,6 +41,7 @@ export const Logo = styled.div`
 
 export const Pages = styled.ul`
   display: flex;
+  gap: 4px;
   width: 100%;
   flex-direction: row;
   justify-content: space-evenly;
@@ -52,9 +53,20 @@ export const Pages = styled.ul`
 `;
 
 export const Page = styled(NavLink)`
-  display: block;
-  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 15px;
+  height: 48px;
+  gap: 10px;
   border-radius: 10px;
+  font-size: 18px;
+  text-align: center;
+
+  @media screen and (min-width: ${({ theme }) => theme.layout.tablet}) {
+    justify-content: start;
+    text-align: left;
+  }
 
   &:hover,
   &:focus {
@@ -76,7 +88,7 @@ export const PageName = styled.p`
 export const ButtonWrapper = styled.div`
   @media screen and (max-width: ${({ theme }) => theme.layout.mobile}) {
     position: absolute;
-    bottom: 10%;
+    bottom: calc(10% + 5px);
     left: 50%;
     transform: translateX(-50%);
     padding: 10px;

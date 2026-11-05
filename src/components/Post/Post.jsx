@@ -12,6 +12,7 @@ import { FaUserCheck, FaUserPlus } from "react-icons/fa";
 const Post = (props) => {
   const { age_hours, id, body, author, likes, liked, created_at, saved } =
     props.content;
+    console.log(props.content)
   const { username, followed } = author;
   const location = useLocation();
 
@@ -31,6 +32,7 @@ const Post = (props) => {
 
   return (
     <StyledPost>
+        <div style={{width: '50px', height: '50px', backgroundColor: props.content.author.color}}></div>
       <Author>
         <Link to={`/@${username}`} state={{ from: location }}>
           <h4>{username}</h4>

@@ -30,7 +30,7 @@ export const StyledButton = styled.button`
 
   &:hover,
   &:focus {
-    background-color: ${({ theme }) => theme.colors.accentShade};
+    background-color: ${({ theme }) => theme.colors.accentFocus};
   }
 
   &.highlight {

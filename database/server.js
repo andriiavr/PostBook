@@ -4,13 +4,86 @@ import db from "./db.js";
 import cors from "cors";
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 import { colorFromId } from "./colors.js";
+import crypto from "node:crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET missing in .env");
 
 function signToken(user) {
   return jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "7d" });
+}
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.AUTH_EMAIL,
+    pass: process.env.AUTH_PASSWORD,
+  },
+});
+
+const VERIFICATION_TTL_MS = 60 * 60 * 1000;
+const VERIFICATION_RESEND_DELAY_MS = 60 * 1000;
+const MAX_VERIFICATION_ATTEMPTS = 5;
+// Keep the existing column name for compatibility; hashes are scoped to a user.
+const hashVerificationCode = (userId, code) =>
+  crypto
+    .createHmac("sha256", JWT_SECRET)
+    .update(`${userId}:${code}`)
+    .digest("hex");
+
+async function sendVerificationEmail(user) {
+  const previous = db
+    .prepare(
+      "SELECT token_hash, expires_at FROM email_verifications WHERE user_id = ?",
+    )
+    .get(user.id);
+  const now = Date.now();
+  if (
+    previous &&
+    now <
+      previous.expires_at - VERIFICATION_TTL_MS + VERIFICATION_RESEND_DELAY_MS
+  ) {
+    return;
+  }
+
+  let code;
+  let codeHash;
+  do {
+    code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+    codeHash = hashVerificationCode(user.id, code);
+  } while (codeHash === previous?.token_hash);
+
+  // Replacing the previous code also resets the failed-attempt counter.
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM email_verifications WHERE user_id = ?").run(
+      user.id,
+    );
+    db.prepare(
+      "INSERT INTO email_verifications (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
+    ).run(codeHash, user.id, now + VERIFICATION_TTL_MS);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+
+  await transporter.sendMail({
+    from: `Postbook NO-REPLY <${process.env.AUTH_EMAIL}>`,
+    to: user.email,
+    subject: `[${code}] Postbook Account: Email address verification`,
+    text: `
+      Verify your email address to complete your signup.
+      Your verification code is: ${code}
+      This code expires in 1 hour.
+    `,
+    html: `<p>Verify your email address to complete your signup.</p>
+           <p>Your verification code:</p>
+           <h2>${code}</h2>
+           <p>This code <b>expires in 1 hour</b>.</p>`,
+  });
 }
 
 // protects a route and sets req.user.id
@@ -75,32 +148,41 @@ app.post("/register", async (req, res) => {
   const { username, email, password, conpassword } = req.body;
   if (!username || !email || !password || !conpassword) {
     return res.status(400).json({ error: "Missing fields" });
-  } else if (conpassword !== password) {
-    return res.status(402).json({ error: "Passwords does not match" });
   }
+  if (conpassword !== password) {
+    return res.status(400).json({ error: "Passwords do not match" });
+  }
+
   const hash = await bcrypt.hash(password, 10);
+  let id;
   try {
     const info = db
       .prepare(
         "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
       )
       .run(username, email, hash);
-
-    const id = Number(info.lastInsertRowid);
-    const color = colorFromId(id);
-    db.prepare("UPDATE users SET color = ? WHERE id = ?").run(color, id);
-
-    res.status(201).json({
-      token: signToken({ id }),
-      user: { id, username, color },
-    });
+    id = Number(info.lastInsertRowid);
+    db.prepare("UPDATE users SET color = ? WHERE id = ?").run(
+      colorFromId(id),
+      id,
+    );
   } catch (err) {
     if (String(err.message).includes("UNIQUE")) {
-      return res.status(409).json({ error: "Username or email taken" });
+      return res.status(409).json({ error: "Username or email is taken" });
     }
     throw err;
   }
-  console.log(username, "has just signed up");
+
+  try {
+    await sendVerificationEmail({ id, email });
+  } catch (err) {
+    console.error("verification email failed:", err);
+  }
+
+  console.log(password);
+  res
+    .status(201)
+    .json({ message: "Check your email to verify your account", email });
 });
 
 app.post("/login", async (req, res) => {
@@ -110,19 +192,98 @@ app.post("/login", async (req, res) => {
   }
   const user = db
     .prepare(
-      "SELECT id, username, bio, password_hash FROM users WHERE username = ? OR email = ?",
+      "SELECT id, username, bio, password_hash, verified FROM users WHERE username = ? OR email = ?",
     )
     .get(identifier, identifier);
 
   const ok = user && (await bcrypt.compare(password, user.password_hash));
+  if (!user) {
+    return res.status(401).json({ error: "Account is not found" });
+  }
   if (!ok) {
-    return res.status(401).json({ error: "Wrong username/email or password" });
+    return res.status(402).json({ error: "Wrong username/email or password" });
+  }
+  if (!user.verified) {
+    return res
+      .status(403)
+      .json({ error: "Please verify your email first", unverified: true });
   }
   res.json({
     token: signToken(user),
     user: { id: user.id, username: user.username, bio: user.bio },
   });
   console.log(identifier, "has just logged in");
+});
+
+// Send { email, code }; code must be a string to preserve leading zeroes.
+app.post("/verify", (req, res) => {
+  const { email, code } = req.body || {};
+  if (
+    typeof email !== "string" ||
+    !email.trim() ||
+    typeof code !== "string" ||
+    !/^\d{6}$/.test(code)
+  ) {
+    return res
+      .status(400)
+      .json({ error: "Email and a 6-digit code are required" });
+  }
+
+  const row = db
+    .prepare(
+      `SELECT v.user_id, v.token_hash, v.expires_at, v.attempts
+       FROM email_verifications v JOIN users u ON u.id = v.user_id
+       WHERE u.email = ? AND u.verified = 0`,
+    )
+    .get(email.trim());
+
+  if (!row || row.expires_at <= Date.now()) {
+    return res.status(400).json({ error: "Code is invalid or expired" });
+  }
+  if (row.attempts >= MAX_VERIFICATION_ATTEMPTS) {
+    return res
+      .status(429)
+      .json({ error: "Too many attempts. Request a new code" });
+  }
+  if (row.token_hash !== hashVerificationCode(row.user_id, code)) {
+    db.prepare(
+      "UPDATE email_verifications SET attempts = attempts + 1 WHERE user_id = ?",
+    ).run(row.user_id);
+    return res.status(400).json({ error: "Code is invalid or expired" });
+  }
+
+  db.prepare("UPDATE users SET verified = 1 WHERE id = ?").run(row.user_id);
+  db.prepare("DELETE FROM email_verifications WHERE user_id = ?").run(
+    row.user_id,
+  );
+
+  const user = db
+    .prepare("SELECT id, username, bio, color FROM users WHERE id = ?")
+    .get(row.user_id);
+
+  res.json({ token: signToken(user), user });
+});
+
+app.post("/resend-verification", async (req, res) => {
+  const { email } = req.body || {};
+  if (typeof email !== "string" || !email.trim()) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+  const user = db
+    .prepare("SELECT id, email, verified FROM users WHERE email = ?")
+    .get(email.trim());
+  if (user && !user.verified) {
+    try {
+      await sendVerificationEmail(user);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  // same answer either way so nobody can probe which emails exist
+  res.json({
+    message:
+      "If that account needs verifying, a code was sent recently or has just been sent. Please wait 60 seconds before requesting another",
+  });
 });
 
 // who am I (useful on page load to check a saved token)

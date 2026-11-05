@@ -27,6 +27,14 @@ const errorInfo = (status) => {
           "You need to be logged in to see this, or your session has expired.",
         action: "login",
       };
+    case 400: 
+      return {
+        status,
+        title: "Link is invalid or expired",
+        message:
+          "This link is no longer valid. Request a new one and try again.",
+        action: "resend"
+      }
     case 500:
       return {
         status,

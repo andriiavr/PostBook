@@ -69,7 +69,7 @@ const Profile = ({ user }) => {
     <StyledProfile>
       <Link
         to={location.state?.from ?? "/"}
-        style={{ padding: 20, paddingBottom: 0, marginRight: "auto" }}
+        style={{ padding: 20, marginRight: "auto" }}
       >
         <MdOutlineArrowBackIos />
       </Link>

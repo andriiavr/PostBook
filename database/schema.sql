@@ -5,7 +5,16 @@ CREATE TABLE users (
   password_hash TEXT NOT NULL,
   bio           TEXT,
   color         TEXT,
-  created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  verified      INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE email_verifications (
+  -- Stores a hash of the user ID and the six-digit verification code.
+  token_hash TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE posts (

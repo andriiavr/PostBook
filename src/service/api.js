@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseURL = "http://192.168.0.187:3001";
+const baseURL = "http://192.168.0.187:3001/";
 
 const api = axios.create({ baseURL });
 
@@ -79,6 +79,24 @@ export const logIn = ({ identifier, password }) => {
       identifier,
       password,
     })
+    .then((res) => res.data)
+    .catch((err) => {
+      throw err;
+    });
+};
+
+export const verifyEmail = (email, code) => {
+  return api
+    .post("/verify", { email, code })
+    .then((res) => res.data)
+    .catch((err) => {
+      throw err;
+    });
+};
+
+export const resendVerify = (email) => {
+  return api
+    .post("/resend-verification", { email })
     .then((res) => res.data)
     .catch((err) => {
       throw err;
@@ -182,4 +200,4 @@ export const search = (q, page = 1, type = "all") => {
     });
 };
 
-console.log(search('andriiavr'))
+console.log(search("andriiavr"));

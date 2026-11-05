@@ -14,4 +14,14 @@ const schema = fs
   .replace(/CREATE INDEX /g, "CREATE INDEX IF NOT EXISTS ");
 db.exec(schema);
 
+// CREATE TABLE IF NOT EXISTS does not add columns to existing tables.
+const verificationColumns = db
+  .prepare("PRAGMA table_info(email_verifications)")
+  .all();
+if (!verificationColumns.some((column) => column.name === "attempts")) {
+  db.exec(
+    "ALTER TABLE email_verifications ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0",
+  );
+}
+
 export default db;

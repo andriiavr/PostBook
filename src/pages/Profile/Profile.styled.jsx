@@ -11,6 +11,7 @@ export const StyledProfile = styled.section`
 export const ProfileInfo = styled.div`
   width: 100%;
   padding: 20px;
+  padding-top: 0;
   border-bottom: 1px solid ${({ theme }) => theme.colors.lines};
 `;
 

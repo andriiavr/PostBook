@@ -9,6 +9,7 @@ import { ProfileOrPost } from "./components/ProfileOrPost";
 import { Following } from "./pages/Home/Following";
 import { NotFound } from "./pages/NotFound/NotFound";
 import Search from "./pages/Search/Search";
+import { VerifyEmail } from "./pages/Login/VerifyEmail";
 
 function App() {
   return (
@@ -27,6 +28,8 @@ function App() {
         </Route>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify" element={<VerifyEmail />} />
+        {/* <Route path="/user/verify/:token" element={<UserVerify />} /> */}
         <Route path="/error" element={<NotFound />} />
       </Routes>
       <GlobalStyle />

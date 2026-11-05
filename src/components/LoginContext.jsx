@@ -20,6 +20,14 @@ export const LoginProvider = ({ children }) => {
   const promptLogin = useCallback(() => setLoginHighlight(true), []);
   const clearLoginHighlight = useCallback(() => setLoginHighlight(false), []);
 
+  const signOut = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("account");
+    setLoggedIn(false);
+    setAccount({});
+    setLoginHighlight(false);
+  }, []);
+
   async function checkServer() {
     const ok = await pingServer();
     setOnline(ok);
@@ -55,6 +63,7 @@ export const LoginProvider = ({ children }) => {
         promptLogin,
         clearLoginHighlight,
         checkLogin,
+        signOut,
       }}
     >
       {children}

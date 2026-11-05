@@ -100,11 +100,13 @@ export const Register = () => {
             required
             placeholder="Confirm password"
           />
-          <ShowPass onClick={(e) => setShowPassword(!showPassword)}>
+          <ShowPass>
             <input
               type="checkbox"
+              id="showpass"
               name="showpass"
               checked={showPassword}
+              onChange={(e) => setShowPassword(e.target.checked)}
               style={{ width: 16, height: 16 }}
             />
             <label htmlFor="showpass">Show password</label>

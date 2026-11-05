@@ -10,6 +10,9 @@ import { Following } from "./pages/Home/Following";
 import { NotFound } from "./pages/NotFound/NotFound";
 import Search from "./pages/Search/Search";
 import { VerifyEmail } from "./pages/Login/VerifyEmail";
+import { Settings } from "./pages/UserSettings/Settings";
+import { ProfileSettings } from "./pages/UserSettings/ProfileSettings";
+import { ThemeSettings } from "./pages/UserSettings/ThemeSettings";
 
 function App() {
   return (
@@ -21,6 +24,10 @@ function App() {
           <Route path="/:id" element={<ProfileOrPost />} />
           <Route path="/newpost" element={<MakePost />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/settings" element={<Settings />}>
+            <Route index path="/settings/profile" element={<ProfileSettings />} />
+            <Route path="/settings/appearance" element={<ThemeSettings />} />
+          </Route>
           <Route
             path="*"
             element={<Navigate to="/error" state={{ code: 404 }} />}
@@ -29,7 +36,6 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify" element={<VerifyEmail />} />
-        {/* <Route path="/user/verify/:token" element={<UserVerify />} /> */}
         <Route path="/error" element={<NotFound />} />
       </Routes>
       <GlobalStyle />
